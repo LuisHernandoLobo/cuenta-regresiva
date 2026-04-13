@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cuenta Regresiva - Retiro</title>
+
+<style>
+    body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: #000;
+        color: #fff;
+        font-family: 'Helvetica Neue', Arial, sans-serif;
+        overflow: hidden;
+    }
+
+    /* CANVAS FONDO */
+    #bgCanvas {
+        position: fixed;
+        width: 100%;
+        height: 100%;
+        z-index: 0;
+    }
+
+    /* CONTENEDOR ORIGINAL */
+    .countdown-container {
+        text-align: center;
+        padding: 2rem;
+        background: rgba(0,10,30,0.9);
+        border-radius: 40px;
+        box-shadow: 0 0 80px rgba(0,255,255,0.3);
+        z-index: 2;
+        backdrop-filter: blur(20px);
+        border: 2px solid rgba(0,255,255,0.3);
+        max-width: 90%;
+        margin-bottom: 2rem;
+    }
+
+    h1 {
+        font-size: 1.5rem;
+        letter-spacing: 4px;
+        text-transform: uppercase;
+        text-shadow: 0 0 20px #0ff;
+    }
+
+    #statusMessage {
+        margin-top: 1rem;
+        color: #00ffaa;
+        text-shadow: 0 0 10px #00ffaa;
+        min-height: 1.2em;
+    }
+
+    .countdown { margin-top: 2rem; }
+
+    .countdown-row {
+        display: flex;
+        justify-content: center;
+        gap: 1rem;
+        font-size: 3rem;
+        margin-bottom: 1rem;
+    }
+
+    .clock-group { text-align: center; }
+
+    .clock-digit {
+        background: rgba(0,30,60,0.9);
+        padding: 10px 15px;
+        border-radius: 10px;
+        color: #0ff;
+        text-shadow: 0 0 10px #0ff;
+        min-width: 60px;
+    }
+
+    .unit-label {
+        font-size: 0.7rem;
+        color: #0ff;
+        margin-top: 5px;
+    }
+
+    /* BARRA PROGRESO */
+    .progress-container {
+        width: 100%;
+        height: 10px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 10px;
+        margin-top: 2rem;
+        overflow: hidden;
+    }
+
+    #progress-bar {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, #0ff, #00ff88);
+        box-shadow: 0 0 20px #0ff;
+        transition: width 1s linear;
+    }
+
+    .trajectory-dates {
+        font-size: 1.1rem;
+        margin-top: 15px;
+        color: #fff;
+        font-weight: bold;
+        letter-spacing: 2px;
+    }
+
+    /* SECCIÓN DE HITOS DINÁMICOS */
+    #history-area {
+        position: relative;
+        z-index: 2;
+        width: 80%;
+        max-width: 800px;
+        text-align: center;
+        min-height: 120px;
+    }
+
+    #history-content {
+        transition: opacity 1.5s ease-in-out;
+        opacity: 0;
+    }
+
+    .history-year {
+        font-size: 2.5rem;
+        color: #00ffaa;
+        margin: 0;
+        font-weight: bold;
+        text-shadow: 0 0 15px rgba(0,255,170,0.4);
+    }
+
+    .history-text {
+        font-size: 1.2rem;
+        color: #e0e0e0;
+        margin-top: 5px;
+        line-height: 1.4;
+    }
+</style>
+</head>
+<body>
+
+<canvas id="bgCanvas"></canvas>
+
+<div class="countdown-container">
+    <h1>Una vida de trabajo… una historia que deja huella</h1>
+    <div id="statusMessage"></div>
+
+    <div class="countdown">
+        <div class="countdown-row">
+            <div class="clock-group">
+                <div id="years" class="clock-digit">00</div>
+                <div class="unit-label">Años</div>
+            </div>
+            <div class="clock-group">
+                <div id="months" class="clock-digit">00</div>
+                <div class="unit-label">Meses</div>
+            </div>
+            <div class="clock-group">
+                <div id="days" class="clock-digit">00</div>
+                <div class="unit-label">Días</div>
+            </div>
+        </div>
+
+        <div class="countdown-row">
+            <div class="clock-group">
+                <div id="hours" class="clock-digit">00</div>
+                <div class="unit-label">Horas</div>
+            </div>
+            <div class="clock-group">
+                <div id="minutes" class="clock-digit">00</div>
+                <div class="unit-label">Min</div>
+            </div>
+            <div class="clock-group">
+                <div id="seconds" class="clock-digit">00</div>
+                <div class="unit-label">Seg</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="progress-container">
+        <div id="progress-bar"></div>
+    </div>
+    <div class="trajectory-dates">16/08/1988 — 31/07/2026</div>
+</div>
+
+<div id="history-area">
+    <div id="history-content"></div>
+</div>
+
+<script>
+// PARTICULAS
+const canvas = document.getElementById('bgCanvas');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+let particles = [];
+for (let i = 0; i < 120; i++) {
+    particles.push({ x: Math.random()*canvas.width, y: Math.random()*canvas.height, vx: Math.random()-0.5, vy: Math.random()-0.5, size: Math.random()*2 });
+}
+function animate() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle = 'rgba(0,255,255,0.7)';
+    particles.forEach(p=>{
+        p.x += p.vx; p.y += p.vy;
+        if(p.x<0||p.x>canvas.width) p.vx*=-1;
+        if(p.y<0||p.y>canvas.height) p.vy*=-1;
+        ctx.beginPath(); ctx.arc(p.x,p.y,p.size,0,Math.PI*2); ctx.fill();
+    });
+    requestAnimationFrame(animate);
+}
+animate();
+
+// HITOS HISTÓRICOS
+const milestones = [
+    {y: "1989", t: "Caída del Muro de Berlín: El fin de una era y el comienzo de un mundo conectado."},
+    {y: "1991", t: "Nace la World Wide Web: La tecnología que transformó nuestra forma de trabajar para siempre."},
+    {y: "2000", t: "Cambio de Milenio: Un nuevo siglo cargado de desafíos que CENS supo afrontar."},
+    {y: "2000", t: "Resiliencia: CENS sobrevive con éxito a la privatización de las empresas del sector eléctrico."},
+    {y: "2007", t: "Revolución Digital: El nacimiento del iPhone cambia la comunicación global."},
+    {y: "2009", t: "Integración al Grupo EPM: El 19 de marzo de 2009, CENS se integró oficialmente al Grupo Empresarial EPM."},
+    {y: "2016", t: "Paz en Colombia: Se firma el acuerdo histórico para buscar un futuro mejor en el país."},
+    {y: "2020", t: "Desafío Global: Superamos juntos una pandemia mundial, demostrando nuestra fortaleza."},
+    {y: "2026", t: "Tu Retiro: El cierre de un capítulo brillante de 38 años dedicados con pasión."}
+];
+
+let currentM = 0;
+function rotateMilestones() {
+    const container = document.getElementById('history-content');
+    const m = milestones[currentM];
+    container.style.opacity = 0;
+    setTimeout(() => {
+        container.innerHTML = `<p class="history-year">${m.y}</p><p class="history-text">${m.t}</p>`;
+        container.style.opacity = 1;
+        currentM = (currentM + 1) % milestones.length;
+    }, 1500);
+}
+setInterval(rotateMilestones, 7000);
+rotateMilestones();
+
+// CUENTA REGRESIVA
+const targetDate = new Date('2026-07-31T18:00:00');
+
+function updateCountdown(){
+    const now = new Date();
+    const diff = targetDate - now;
+
+    let years = targetDate.getFullYear() - now.getFullYear();
+    let months = targetDate.getMonth() - now.getMonth();
+    let days = targetDate.getDate() - now.getDate();
+
+    if (days < 0) { months--; let prevMonth = new Date(now.getFullYear(), now.getMonth(), 0); days += prevMonth.getDate(); }
+    if (months < 0) { years--; months += 12; }
+
+    set('years', Math.max(0, years));
+    set('months', Math.max(0, months));
+    set('days', Math.max(0, days));
+    set('hours', Math.max(0, Math.floor((diff/(1000*60*60))%24)));
+    set('minutes', Math.max(0, Math.floor((diff/(1000*60))%60)));
+    set('seconds', Math.max(0, Math.floor((diff/1000)%60)));
+
+    updateMessage(diff);
+    updateProgress(now);
+}
+
+function set(id,val){
+    document.getElementById(id).textContent = String(val).padStart(2,'0');
+}
+
+function updateMessage(diff){
+    const days = diff/(1000*60*60*24);
+    let msg="";
+    if(days>90) msg="Cada día suma a una historia que pronto cerrará su capítulo más largo.";
+    else if(days>30) msg="Cada jornada se vuelve especial… porque ya sabes que no serán muchas más.";
+    else if(diff>0) msg="Después de 38 años… llegó el momento. Gracias por todo.";
+    else msg="¡Misión Cumplida! Feliz Retiro.";
+    document.getElementById('statusMessage').textContent = msg;
+}
+
+function updateProgress(now){
+    const start2026 = new Date('2026-01-01T00:00:00');
+    const total2026 = targetDate - start2026;
+    const elapsed2026 = now - start2026;
+    let percent = (elapsed2026 / total2026) * 100;
+    document.getElementById('progress-bar').style.width = Math.max(0, Math.min(percent, 100)) + "%";
+}
+
+setInterval(updateCountdown, 1000);
+updateCountdown();
+</script>
+</body>
+</html>
